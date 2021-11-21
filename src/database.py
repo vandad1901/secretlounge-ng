@@ -5,6 +5,8 @@ import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from random import randint
 from threading import RLock
+from urllib.parse import urlparse
+from sqlalchemy import create_engine
 
 from src.globals import *
 
@@ -379,3 +381,128 @@ CREATE TABLE IF NOT EXISTS `users` (
 		with self.lock:
 			for k, v in d.items():
 				self.db.execute(sql, (k, v))
+
+class PostgresDatabase(Database):
+	def __init__(self, path):
+		super(PostgresDatabase, self).__init__()
+		path = urlparse(path)._replace(scheme="postgresql").geturl()
+		engine = create_engine(path, echo=False)
+		self.db = engine.connect()
+		self._ensure_schema()
+	def register_tasks(self, sched):
+		def f():
+			with self.lock:
+				pass
+		sched.register(f, seconds=5)
+	def close(self):
+		with self.lock:
+			pass
+			self.db.close()
+	@staticmethod
+	def _systemConfigToDict(config):
+		return {"motd": config.motd}
+	@staticmethod
+	def _systemConfigFromDict(d):
+		if len(d) == 0: return None
+		config = SystemConfig()
+		config.motd = d["motd"]
+		return config
+	@staticmethod
+	def _userToDict(user):
+		return {prop: getattr(user, prop) for prop in USER_PROPS}
+	@staticmethod
+	def _userFromRow(r):
+		user = User()
+		for prop in r.keys():
+			setattr(user, prop, r[prop])
+		return user
+	def _ensure_schema(self):
+		with self.lock:
+			# create initial schema
+			self.db.execute("""
+							CREATE TABLE IF NOT EXISTS "system_config" (
+								"name" TEXT NOT NULL,
+								"value" TEXT NOT NULL,
+								PRIMARY KEY ("name")
+							);
+			""".strip())
+			self.db.execute("""
+							CREATE TABLE IF NOT EXISTS "users" (
+								"id" BIGINT NOT NULL,
+								"username" TEXT,
+								"realname" TEXT NOT NULL,
+								"rank" INTEGER NOT NULL,
+								"joined" TIMESTAMP NOT NULL,
+								"left" TIMESTAMP,
+								"lastActive" TIMESTAMP NOT NULL,
+								"cooldownUntil" TIMESTAMP,
+								"blacklistReason" TEXT,
+								"warnings" INTEGER NOT NULL,
+								"warnExpiry" TIMESTAMP,
+								"karma" INTEGER NOT NULL,
+								"hideKarma" BOOLEAN  NOT NULL,
+								"debugEnabled" BOOLEAN  NOT NULL,
+								"tripcode" TEXT,
+								PRIMARY KEY ("id")
+							);
+			""".strip())
+			# migration
+			self.db.execute('ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "tripcode" TEXT')
+	def getUser(self, id=None):
+		if id is None:
+			raise ValueError()
+		sql = "SELECT * FROM users WHERE id = '{}'"
+		param = id
+		with self.lock:
+			cur = self.db.execute(sql.format(param))
+			row = cur.fetchone()
+		if row is None:
+			raise KeyError()
+		return PostgresDatabase._userFromRow(row)
+	def setUser(self, id, newuser):
+		newuser = PostgresDatabase._userToDict(newuser)
+		del newuser['id'] # this is our primary key
+		sql = "UPDATE users SET "
+		sql += ", ".join('"%s" = {}' % k for k in newuser.keys())
+		sql += " WHERE id = {}"
+		param = list(newuser.values()) + [id, ]
+		with self.lock:
+			self.db.execute(sql.format(*[f"'{k}'" if k!=None else 'NULL' for k in param]))
+	def addUser(self, newuser):
+		newuser = PostgresDatabase._userToDict(newuser)
+		sql = "INSERT INTO users("
+		sql += ", ".join('"%s"' % k for k in newuser.keys())
+		sql += ") VALUES ("
+		sql += ", ".join("{}" for i in range(len(newuser)))
+		sql += ")"
+		param = list(newuser.values())
+		with self.lock:
+			self.db.execute(sql.format(*[f"'{k}'" if k!=None else 'NULL' for k in param]))
+	def iterateUserIds(self):
+		sql = 'SELECT "id" FROM users'
+		with self.lock:
+			cur = self.db.execute(sql)
+			l = cur.fetchall()
+		yield from l
+	def iterateUsers(self):
+		sql = "SELECT * FROM users"
+		with self.lock:
+			cur = self.db.execute(sql)
+			l = list(PostgresDatabase._userFromRow(row) for row in cur)
+		yield from l
+	def getSystemConfig(self):
+		sql = "SELECT * FROM system_config"
+		with self.lock:
+			cur = self.db.execute(sql)
+			d = {row['name']: row['value'] for row in cur}
+		return PostgresDatabase._systemConfigFromDict(d)
+	def setSystemConfig(self, config):
+		d = PostgresDatabase._systemConfigToDict(config)
+		sql = '''INSERT INTO system_config (name, value) 
+				 VALUES ('{name}','{value}')
+				 ON CONFLICT (name) DO UPDATE 
+  				 SET name = excluded.name, 
+      			 value = excluded.value;'''
+		with self.lock:
+			for k, v in d.items():
+				self.db.execute(sql.format(name = k,value = v))
