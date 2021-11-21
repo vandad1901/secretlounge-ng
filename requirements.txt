@@ -1,4 +1,5 @@
 pyTelegramBotAPI>=3.7.4
 pyYAML>=3.12
+python-dotenv==0.19.0
 SQLAlchemy==1.4.19
 psycopg2==2.8.6

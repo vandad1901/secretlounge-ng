@@ -36,8 +36,16 @@ linked_network: dict = None
 def init(config, _db, _ch):
 	global bot, db, ch, message_queue, allow_documents, linked_network
 	if config["bot_token"] == "":
-		logging.error("No telegram token specified.")
-		exit(1)
+		import dotenv
+		import os
+		dotenv.load_dotenv()
+		try:
+			config["bot_token"] = os.environ["bot_token"]
+			if(not os.environ["bot_token"]):
+				raise
+		except:
+			logging.error("No telegram token specified.")
+			exit(1)
 
 	logging.getLogger("urllib3").setLevel(logging.WARNING) # very noisy with debug otherwise
 	telebot.apihelper.READ_TIMEOUT = 20
