@@ -2,7 +2,7 @@ secretlounge-ng
 ---------------
 Rewrite of [secretlounge](https://github.com/6697/secretlounge), a bot to make an anonymous group chat on Telegram.
 
-This forks has 2 main fixes for herkou deploys
+This forks has fixes for herkou deploys
 
 * Postgresql support
 * Moved secrets to enviromental variables
@@ -14,6 +14,10 @@ $ cp config.yaml.example config.yaml
 Edit config.yaml with your favorite text editor.
 $ ./secretlounge-ng
 ```
+## Heroku setup
+
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/vandad1901/secretlounge-ng)
+
 
 ## @BotFather Setup
 Message [@BotFather](https://t.me/BotFather) to configure your bot as follows:
