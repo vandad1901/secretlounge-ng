@@ -2,6 +2,11 @@ secretlounge-ng
 ---------------
 Rewrite of [secretlounge](https://github.com/6697/secretlounge), a bot to make an anonymous group chat on Telegram.
 
+This forks has 2 main fixes for herkou deploys
+
+* Postgresql support
+* Moved secrets to enviromental variables
+
 ## Setup
 ```
 $ pip3 install -r requirements.txt
