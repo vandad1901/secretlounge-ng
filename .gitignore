@@ -4,4 +4,3 @@ __pycache__
 procfile
 runtime.txt
 config.yaml
-app.json

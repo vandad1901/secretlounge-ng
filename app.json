@@ -1,0 +1,21 @@
+{
+  "name": "secret-lounge-bot",
+  "description": "An anonymous chatting bot",
+  "keywords": ["python", "pyrogram", "telegram"],
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "env": {
+    "bot_token": {
+      "description": "Bot token from @BotFather"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql"
+    }
+  ]
+}
